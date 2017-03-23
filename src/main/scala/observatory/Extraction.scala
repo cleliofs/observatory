@@ -11,8 +11,7 @@ import scala.collection.immutable.{Map, Seq}
   */
 object Extraction {
 
-  var stationMapByStnId: Map[Int, Station] = Map.empty
-  var stationMapByWbanId: Map[Int, Station] = Map.empty
+  var stationMap: Map[String, Station] = Map.empty
 
   val df = new DecimalFormat("##.#")
 
@@ -28,12 +27,11 @@ object Extraction {
 
     val temperatureDays = readLines(temperaturesFile).filterNot(_.trim.isEmpty).map(TemperatureDay(_)).to[Seq]
 
-    populateStationMapByStnIdMap(filteredStations)
-    populateStationMapByWbanId(filteredStations)
+    populateStationMap(filteredStations)
 
     temperatureDays.flatMap(td => {
-      val station = td.stnId.flatMap(id => stationMapByStnId.get(id))
-        .orElse(td.wbanId.flatMap(id => stationMapByWbanId.get(id)))
+      val stationKey = s"${td.stnId.getOrElse("")}-${td.wbanId.getOrElse("")}"
+      val station = stationMap.get(stationKey)
 
       station.map(s => {
         val date = LocalDate.of(year, td.month, td.day)
@@ -50,22 +48,17 @@ object Extraction {
     * @return A sequence containing, for each location, the average temperature over the year.
     */
   def locationYearlyAverageRecords(records: Iterable[(LocalDate, Location, Double)]): Iterable[(Location, Double)] = {
-    ???
+    val res: Seq[(Location, Double)] = records.groupBy(_._2).map(t => (t._1, t._2.map(_._3).sum / t._2.size)).to[Seq]
+    res
   }
 
   private[observatory] def toCelsius(fahrenheit: Double): Double = {
     df.format((fahrenheit - 32) * (5d/9d)).toDouble
   }
 
-  private[observatory] def populateStationMapByStnIdMap(stations: Seq[Station]): Unit = {
-    if (stationMapByStnId.isEmpty) {
-      stationMapByStnId = Map(stations.filterNot(_.stnId.isEmpty) map { a => a.stnId.get -> a }: _*)
-    }
-  }
-
-  private[observatory] def populateStationMapByWbanId(stations: Seq[Station]): Unit = {
-    if (stationMapByWbanId.isEmpty) {
-      stationMapByWbanId = Map(stations.filterNot(_.wbanId.isEmpty) map { a => a.wbanId.get -> a }: _*)
+  private[observatory] def populateStationMap(stations: Seq[Station]): Unit = {
+    if (stationMap.isEmpty) {
+      stationMap = Map(stations map { a => s"${a.stnId.getOrElse("")}-${a.wbanId.getOrElse("")}" -> a }: _*)
     }
   }
 
