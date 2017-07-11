@@ -5,6 +5,7 @@ import java.text.DecimalFormat
 import java.time.LocalDate
 
 import scala.collection.immutable.{Map, Seq}
+import scala.io.Source.fromInputStream
 
 /**
   * 1st milestone: data extraction
@@ -23,22 +24,31 @@ object Extraction {
     */
   def locateTemperatures(year: Int, stationsFile: String, temperaturesFile: String): Iterable[(LocalDate, Location, Double)] = {
     val stations: Seq[Station] = readLines(stationsFile).filterNot(_.trim.isEmpty).map(Station(_)).to[Seq]
-    val filteredStations = stations.filterNot(s => s.latitude.isEmpty || s.longitude.isEmpty)
+    val filteredStations = stations.filterNot(s => s.latitude.isEmpty || s.longitude.isEmpty || s.latitude.contains("+00.000") || s.longitude.contains("+00.000"))
 
     val temperatureDays = readLines(temperaturesFile).filterNot(_.trim.isEmpty).map(TemperatureDay(_)).to[Seq]
 
     populateStationMap(filteredStations)
 
+    var i=0
+
     temperatureDays.flatMap(td => {
       val stationKey = s"${td.stnId.getOrElse("")}-${td.wbanId.getOrElse("")}"
       val station = stationMap.get(stationKey)
+
 
       station.map(s => {
         val date = LocalDate.of(year, td.month, td.day)
         val location = Location(s.latitude.map(s => s.toDouble).get, s.longitude.map(s => s.toDouble).get)
         val celsius = toCelsius(td.fahrenheit)
 
-        (date, location, celsius)
+        val res = (date, location, celsius)
+
+        i+=1
+        println(s"$i: $res")
+
+        res
+
       })
     })
   }
@@ -64,6 +74,6 @@ object Extraction {
 
   private[observatory] def readLines(file: String) = {
     val stream : InputStream = getClass.getResourceAsStream(file)
-    scala.io.Source.fromInputStream(stream).getLines
+    fromInputStream(stream).getLines
   }
 }
